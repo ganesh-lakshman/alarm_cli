@@ -69,12 +69,17 @@ def _on_alarm_fired(alarm: Alarm) -> None:
 HELP_TEXT = f"""{colorize('Available Commands:', BOLD, CYAN)}
 
   {colorize('add', GREEN)} <time> [--label TEXT] [--type once|daily|weekdays]
-      Set a new alarm. Time can be absolute or relative.
+      Set a new alarm. Time can be absolute, relative, or a full date-time.
       Examples:  add 7:30am --label "Wake up"
                  add 14:00 --type daily
                  add 5m --label "Tea timer"
                  add 1h30m
                  add 30s
+                 add tomorrow 9:00 --label "Standup"
+                 add friday 14:00
+                 add Oct 10 7:30am
+                 add 2026-10-10 07:30
+                 add 10/12/2026 3:00pm
 
   {colorize('list', GREEN)} / {colorize('ls', GREEN)}
       Show all active alarms.

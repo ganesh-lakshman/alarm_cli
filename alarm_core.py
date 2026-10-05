@@ -98,16 +98,40 @@ def parse_duration(text: str) -> Optional[timedelta]:
     return timedelta(hours=hours, minutes=minutes, seconds=seconds)
 
 
-def parse_time(text: str) -> Optional[datetime]:
-    """Parse absolute time strings like '07:30', '14:00', '7:30pm', '2:00 PM'.
+_WEEKDAY_NAMES = {
+    "monday": 0, "mon": 0,
+    "tuesday": 1, "tue": 1, "tues": 1,
+    "wednesday": 2, "wed": 2,
+    "thursday": 3, "thu": 3, "thur": 3, "thurs": 3,
+    "friday": 4, "fri": 4,
+    "saturday": 5, "sat": 5,
+    "sunday": 6, "sun": 6,
+}
 
-    If the time has already passed today, it's assumed to be tomorrow.
+_MONTH_NAMES = {
+    "jan": 1, "january": 1,
+    "feb": 2, "february": 2,
+    "mar": 3, "march": 3,
+    "apr": 4, "april": 4,
+    "may": 5,
+    "jun": 6, "june": 6,
+    "jul": 7, "july": 7,
+    "aug": 8, "august": 8,
+    "sep": 9, "sept": 9, "september": 9,
+    "oct": 10, "october": 10,
+    "nov": 11, "november": 11,
+    "dec": 12, "december": 12,
+}
+
+
+def _parse_time_component(text: str) -> Optional[tuple[int, int]]:
+    """Extract (hour, minute) from a time string like '7:30am', '14:00'.
+
+    Returns None if the text doesn't contain a recognizable time.
     """
     text = text.strip().lower().replace(" ", "")
-    now = datetime.now()
-    target = None
 
-    # Try 12-hour format: 7:30pm, 7:30am, 730pm
+    # 12-hour format: 7:30pm, 7:30am, 730pm
     match_12 = re.match(r"^(\d{1,2}):?(\d{2})\s*(am|pm)$", text)
     if match_12:
         hour = int(match_12.group(1))
@@ -117,19 +141,33 @@ def parse_time(text: str) -> Optional[datetime]:
             hour += 12
         elif period == "am" and hour == 12:
             hour = 0
-        target = now.replace(hour=hour, minute=minute, second=0, microsecond=0)
-
-    # Try 24-hour format: 07:30, 14:00, 7:30
-    if target is None:
-        match_24 = re.match(r"^(\d{1,2}):(\d{2})$", text)
-        if match_24:
-            hour = int(match_24.group(1))
-            minute = int(match_24.group(2))
-            if 0 <= hour <= 23 and 0 <= minute <= 59:
-                target = now.replace(hour=hour, minute=minute, second=0, microsecond=0)
-
-    if target is None:
+        if 0 <= hour <= 23 and 0 <= minute <= 59:
+            return (hour, minute)
         return None
+
+    # 24-hour format: 07:30, 14:00
+    match_24 = re.match(r"^(\d{1,2}):(\d{2})$", text)
+    if match_24:
+        hour = int(match_24.group(1))
+        minute = int(match_24.group(2))
+        if 0 <= hour <= 23 and 0 <= minute <= 59:
+            return (hour, minute)
+
+    return None
+
+
+def parse_time(text: str) -> Optional[datetime]:
+    """Parse absolute time strings like '07:30', '14:00', '7:30pm', '2:00 PM'.
+
+    If the time has already passed today, it's assumed to be tomorrow.
+    """
+    hm = _parse_time_component(text)
+    if hm is None:
+        return None
+
+    hour, minute = hm
+    now = datetime.now()
+    target = now.replace(hour=hour, minute=minute, second=0, microsecond=0)
 
     # If this time has already passed today, schedule for tomorrow
     if target <= now:
@@ -138,15 +176,159 @@ def parse_time(text: str) -> Optional[datetime]:
     return target
 
 
+def _next_weekday(weekday: int) -> datetime:
+    """Return the next occurrence of the given weekday (0=Mon, 6=Sun)."""
+    now = datetime.now()
+    days_ahead = weekday - now.weekday()
+    if days_ahead <= 0:
+        days_ahead += 7
+    return (now + timedelta(days=days_ahead)).replace(
+        hour=0, minute=0, second=0, microsecond=0
+    )
+
+
+def parse_datetime(text: str) -> Optional[datetime]:
+    """Parse full date-time strings with flexible natural-language support.
+
+    Supported formats:
+        2026-10-10 07:30          ISO-style date + time
+        2026-10-10 7:30am         ISO date + 12h time
+        Oct 10 7:30am             Month-name + day + time
+        October 10 14:00          Full month name + day + time
+        10 Oct 7:30pm             Day + month-name + time
+        tomorrow 9:00             Relative day + time
+        today 14:30               Relative day + time
+        friday 14:00              Weekday name + time
+        fri 7:30pm                Abbreviated weekday + time
+
+    Returns None if the text doesn't match any known format.
+    """
+    clean = text.strip()
+    now = datetime.now()
+
+    # ── ISO-style: 2026-10-10 07:30 or 2026-10-10 7:30am ──
+    iso_match = re.match(
+        r"^(\d{4})-(\d{1,2})-(\d{1,2})\s+(.+)$", clean
+    )
+    if iso_match:
+        year = int(iso_match.group(1))
+        month = int(iso_match.group(2))
+        day = int(iso_match.group(3))
+        time_part = iso_match.group(4)
+        hm = _parse_time_component(time_part)
+        if hm:
+            try:
+                return datetime(year, month, day, hm[0], hm[1])
+            except ValueError:
+                return None
+
+    # ── ISO date-only: 2026-10-10 (defaults to midnight) ──
+    iso_date_only = re.match(r"^(\d{4})-(\d{1,2})-(\d{1,2})$", clean)
+    if iso_date_only:
+        try:
+            return datetime(
+                int(iso_date_only.group(1)),
+                int(iso_date_only.group(2)),
+                int(iso_date_only.group(3)),
+            )
+        except ValueError:
+            return None
+
+    # ── DD/MM/YYYY HH:MM or MM/DD/YYYY HH:MM ──
+    slash_match = re.match(
+        r"^(\d{1,2})/(\d{1,2})/(\d{4})\s+(.+)$", clean
+    )
+    if slash_match:
+        a, b = int(slash_match.group(1)), int(slash_match.group(2))
+        year = int(slash_match.group(3))
+        time_part = slash_match.group(4)
+        hm = _parse_time_component(time_part)
+        if hm:
+            # Try DD/MM/YYYY first, fall back to MM/DD/YYYY
+            for day, month in [(a, b), (b, a)]:
+                try:
+                    return datetime(year, month, day, hm[0], hm[1])
+                except ValueError:
+                    continue
+
+    # Split into tokens for keyword-based parsing
+    tokens = clean.split()
+    if len(tokens) < 2:
+        return None
+
+    lower_tokens = [t.lower() for t in tokens]
+    time_str = tokens[-1]
+    hm = _parse_time_component(time_str)
+
+    # If the last token isn't a time, try joining the last two
+    # (handles "7:30 am" as two tokens)
+    if hm is None and len(tokens) >= 3 and lower_tokens[-1] in ("am", "pm"):
+        time_str = tokens[-2] + tokens[-1]
+        hm = _parse_time_component(time_str)
+        date_tokens = lower_tokens[:-2]
+    else:
+        date_tokens = lower_tokens[:-1]
+
+    if hm is None:
+        return None
+
+    hour, minute = hm
+
+    # ── "today" / "tomorrow" + time ──
+    if date_tokens == ["today"]:
+        return now.replace(hour=hour, minute=minute, second=0, microsecond=0)
+
+    if date_tokens == ["tomorrow"]:
+        tomorrow = now + timedelta(days=1)
+        return tomorrow.replace(hour=hour, minute=minute, second=0, microsecond=0)
+
+    # ── Weekday name + time: "friday 14:00", "fri 7:30pm" ──
+    if len(date_tokens) == 1 and date_tokens[0] in _WEEKDAY_NAMES:
+        target_day = _next_weekday(_WEEKDAY_NAMES[date_tokens[0]])
+        return target_day.replace(hour=hour, minute=minute)
+
+    # ── Month Day + time: "Oct 10 7:30am", "October 10 14:00" ──
+    if len(date_tokens) == 2:
+        month_name, day_str = date_tokens[0], date_tokens[1]
+        if month_name in _MONTH_NAMES:
+            try:
+                day = int(day_str)
+                month = _MONTH_NAMES[month_name]
+                year = now.year
+                target = datetime(year, month, day, hour, minute)
+                if target < now:
+                    target = target.replace(year=year + 1)
+                return target
+            except (ValueError, OverflowError):
+                pass
+
+        # ── Day Month + time: "10 Oct 7:30pm" ──
+        day_str, month_name = date_tokens[0], date_tokens[1]
+        if month_name in _MONTH_NAMES:
+            try:
+                day = int(day_str)
+                month = _MONTH_NAMES[month_name]
+                year = now.year
+                target = datetime(year, month, day, hour, minute)
+                if target < now:
+                    target = target.replace(year=year + 1)
+                return target
+            except (ValueError, OverflowError):
+                pass
+
+    return None
+
+
 def parse_alarm_time(text: str) -> tuple[datetime, str]:
     """Parse user input into a target datetime and a human-readable description.
 
-    Supports both relative ('in 5m') and absolute ('07:30') formats.
+    Supports relative ('in 5m'), time-only ('07:30'), and full date-time
+    ('2026-10-10 07:30', 'Oct 10 7:30am', 'tomorrow 9:00', 'friday 14:00').
     Raises ValueError if the input can't be parsed.
     """
     clean = text.strip()
 
-    # Strip leading "in " for duration input
+    # ── Relative duration: "5m", "in 1h30m" ──
     duration_text = re.sub(r"^in\s+", "", clean, flags=re.IGNORECASE)
     delta = parse_duration(duration_text)
     if delta is not None:
@@ -154,16 +336,39 @@ def parse_alarm_time(text: str) -> tuple[datetime, str]:
         desc = f"in {duration_text} ({target.strftime('%H:%M:%S')})"
         return target, desc
 
-    # Strip leading "at " for absolute time input
-    time_text = re.sub(r"^at\s+", "", clean, flags=re.IGNORECASE)
-    target = parse_time(time_text)
+    # Strip leading "at " / "on " for absolute input
+    abs_text = re.sub(r"^(at|on)\s+", "", clean, flags=re.IGNORECASE)
+
+    # ── Full date-time: "2026-10-10 07:30", "Oct 10 7:30am", etc. ──
+    dt = parse_datetime(abs_text)
+    if dt is not None:
+        now = datetime.now()
+        if dt < now:
+            raise ValueError(
+                f"Time '{text}' is in the past ({dt.strftime('%Y-%m-%d %H:%M')}). "
+                "Please specify a future date and time."
+            )
+        if dt.date() == now.date():
+            desc = f"{dt.strftime('%H:%M')} today"
+        elif dt.date() == (now + timedelta(days=1)).date():
+            desc = f"{dt.strftime('%H:%M')} tomorrow"
+        else:
+            desc = dt.strftime("%Y-%m-%d %H:%M (%A)")
+        return dt, desc
+
+    # ── Time-only: "07:30", "2:30pm" ──
+    target = parse_time(abs_text)
     if target is not None:
         day_label = "today" if target.date() == datetime.now().date() else "tomorrow"
         desc = f"{target.strftime('%H:%M')} {day_label}"
         return target, desc
 
     raise ValueError(
-        f"Cannot parse '{text}'. Examples: '5m', '1h30m', '07:30', '2:30pm', 'in 10s'"
+        f"Cannot parse '{text}'. Examples:\n"
+        "  Time:      7:30am, 14:00, 9:00pm\n"
+        "  Duration:  5m, 1h30m, 30s\n"
+        "  Date+Time: 2026-10-10 07:30, Oct 10 7:30am\n"
+        "  Relative:  tomorrow 9:00, friday 14:00"
     )
 
 

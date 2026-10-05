@@ -17,6 +17,7 @@ from alarm_core import (
     AlarmStatus,
     AlarmType,
     parse_alarm_time,
+    parse_datetime,
     parse_duration,
     parse_time,
 )
@@ -106,6 +107,105 @@ class TestParseTime(unittest.TestCase):
             self.assertEqual(result.date(), (now + timedelta(days=1)).date())
 
 
+class TestParseDatetime(unittest.TestCase):
+    """Test full date-time parsing (e.g. '2026-10-10 07:30', 'Oct 10 7:30am')."""
+
+    def test_iso_format_24h(self):
+        result = parse_datetime("2026-12-25 14:00")
+        self.assertIsNotNone(result)
+        self.assertEqual(result.year, 2026)
+        self.assertEqual(result.month, 12)
+        self.assertEqual(result.day, 25)
+        self.assertEqual(result.hour, 14)
+        self.assertEqual(result.minute, 0)
+
+    def test_iso_format_12h(self):
+        result = parse_datetime("2026-12-25 2:30pm")
+        self.assertIsNotNone(result)
+        self.assertEqual(result.hour, 14)
+        self.assertEqual(result.minute, 30)
+
+    def test_iso_date_only(self):
+        result = parse_datetime("2026-12-25")
+        self.assertIsNotNone(result)
+        self.assertEqual(result.year, 2026)
+        self.assertEqual(result.month, 12)
+        self.assertEqual(result.day, 25)
+        self.assertEqual(result.hour, 0)
+        self.assertEqual(result.minute, 0)
+
+    def test_month_name_day_time(self):
+        result = parse_datetime("Oct 10 7:30am")
+        self.assertIsNotNone(result)
+        self.assertEqual(result.month, 10)
+        self.assertEqual(result.day, 10)
+        self.assertEqual(result.hour, 7)
+        self.assertEqual(result.minute, 30)
+
+    def test_full_month_name(self):
+        result = parse_datetime("December 25 14:00")
+        self.assertIsNotNone(result)
+        self.assertEqual(result.month, 12)
+        self.assertEqual(result.day, 25)
+
+    def test_day_month_name_time(self):
+        result = parse_datetime("10 Oct 7:30pm")
+        self.assertIsNotNone(result)
+        self.assertEqual(result.month, 10)
+        self.assertEqual(result.day, 10)
+        self.assertEqual(result.hour, 19)
+        self.assertEqual(result.minute, 30)
+
+    def test_tomorrow_time(self):
+        result = parse_datetime("tomorrow 9:00")
+        self.assertIsNotNone(result)
+        expected = datetime.now() + timedelta(days=1)
+        self.assertEqual(result.date(), expected.date())
+        self.assertEqual(result.hour, 9)
+        self.assertEqual(result.minute, 0)
+
+    def test_today_time(self):
+        result = parse_datetime("today 23:59")
+        self.assertIsNotNone(result)
+        self.assertEqual(result.date(), datetime.now().date())
+        self.assertEqual(result.hour, 23)
+
+    def test_weekday_name(self):
+        result = parse_datetime("friday 14:00")
+        self.assertIsNotNone(result)
+        self.assertEqual(result.weekday(), 4)  # Friday
+        self.assertEqual(result.hour, 14)
+        self.assertGreater(result, datetime.now())
+
+    def test_abbreviated_weekday(self):
+        result = parse_datetime("mon 8:00am")
+        self.assertIsNotNone(result)
+        self.assertEqual(result.weekday(), 0)  # Monday
+        self.assertEqual(result.hour, 8)
+
+    def test_slash_format(self):
+        result = parse_datetime("25/12/2026 14:00")
+        self.assertIsNotNone(result)
+        self.assertEqual(result.year, 2026)
+        self.assertEqual(result.month, 12)
+        self.assertEqual(result.day, 25)
+
+    def test_invalid_date_returns_none(self):
+        self.assertIsNone(parse_datetime("not a date"))
+        self.assertIsNone(parse_datetime(""))
+
+    def test_invalid_iso_date_returns_none(self):
+        self.assertIsNone(parse_datetime("2026-13-40 14:00"))
+
+    def test_month_day_wraps_to_next_year(self):
+        now = datetime.now()
+        past_month = now.month - 1 if now.month > 1 else 12
+        result = parse_datetime(f"Jan 1 10:00")
+        self.assertIsNotNone(result)
+        if result:
+            self.assertGreaterEqual(result, now.replace(hour=0, minute=0, second=0, microsecond=0))
+
+
 class TestParseAlarmTime(unittest.TestCase):
     """Test the combined parse_alarm_time function."""
 
@@ -130,6 +230,29 @@ class TestParseAlarmTime(unittest.TestCase):
         target, desc = parse_alarm_time("at 14:00")
         self.assertEqual(target.hour, 14)
         self.assertEqual(target.minute, 0)
+
+    def test_datetime_with_on_prefix(self):
+        target, desc = parse_alarm_time("on 2026-12-25 14:00")
+        self.assertEqual(target.year, 2026)
+        self.assertEqual(target.month, 12)
+        self.assertEqual(target.day, 25)
+        self.assertIn("2026-12-25", desc)
+
+    def test_datetime_tomorrow(self):
+        target, desc = parse_alarm_time("tomorrow 9:00")
+        expected = datetime.now() + timedelta(days=1)
+        self.assertEqual(target.date(), expected.date())
+        self.assertIn("tomorrow", desc)
+
+    def test_datetime_weekday(self):
+        target, desc = parse_alarm_time("friday 14:00")
+        self.assertEqual(target.weekday(), 4)
+        self.assertIn("Friday", desc)
+
+    def test_past_datetime_raises_valueerror(self):
+        with self.assertRaises(ValueError) as ctx:
+            parse_alarm_time("2020-01-01 10:00")
+        self.assertIn("past", str(ctx.exception).lower())
 
     def test_invalid_raises_valueerror(self):
         with self.assertRaises(ValueError):
