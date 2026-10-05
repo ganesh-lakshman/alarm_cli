@@ -1,0 +1,70 @@
+<mxfile host="app.diagrams.net">
+  <diagram name="Page-1" id="8fpSV3UAx4ggRSZT4kyj">
+    <mxGraphModel dx="774" dy="505" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="850" pageHeight="1100" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="EjI9nSO4NDF0MQV-eIea-1" parent="1" style="rounded=0;whiteSpace=wrap;html=1;" value="Alarm" vertex="1">
+          <mxGeometry height="60" width="120" x="50" y="130" as="geometry" />
+        </mxCell>
+        <mxCell id="EjI9nSO4NDF0MQV-eIea-2" parent="1" style="rounded=0;whiteSpace=wrap;html=1;" value="Add an Alarm" vertex="1">
+          <mxGeometry height="60" width="120" x="210" y="70" as="geometry" />
+        </mxCell>
+        <mxCell id="EjI9nSO4NDF0MQV-eIea-3" parent="1" style="rounded=0;whiteSpace=wrap;html=1;" value="1) select date, time&lt;div&gt;2) Label the alarm&lt;br&gt;3) frequency (daily, every Saturday, once etc)&lt;br&gt;&lt;/div&gt;" vertex="1">
+          <mxGeometry height="90" width="180" x="370" y="55" as="geometry" />
+        </mxCell>
+        <mxCell id="EjI9nSO4NDF0MQV-eIea-4" parent="1" style="rounded=0;whiteSpace=wrap;html=1;" value="Edge cases:&lt;div&gt;1) default selections should be simple, like 30s, 7:30am, 5m etc.&amp;nbsp;&lt;/div&gt;&lt;div&gt;2) Time can be absolute or relative&lt;/div&gt;" vertex="1">
+          <mxGeometry height="110" width="205" x="570" y="45" as="geometry" />
+        </mxCell>
+        <mxCell id="EjI9nSO4NDF0MQV-eIea-6" parent="1" style="rounded=0;whiteSpace=wrap;html=1;" value="Main Thread&lt;div&gt;(Read-Eval-Print Loop)&lt;/div&gt;&lt;div&gt;Parse input command&lt;/div&gt;" vertex="1">
+          <mxGeometry height="60" width="290" x="330" y="210" as="geometry" />
+        </mxCell>
+        <mxCell id="EjI9nSO4NDF0MQV-eIea-7" parent="1" style="rounded=0;whiteSpace=wrap;html=1;" value="Scheduler Thread (daemon)&lt;div&gt;Wakes up periodically to check for tasks&lt;/div&gt;" vertex="1">
+          <mxGeometry height="60" width="290" x="330" y="320" as="geometry" />
+        </mxCell>
+        <mxCell id="EjI9nSO4NDF0MQV-eIea-8" parent="1" style="rounded=0;whiteSpace=wrap;html=1;" value="Per task Thread (short-lived, daemon)&lt;div&gt;&lt;br&gt;&lt;/div&gt;" vertex="1">
+          <mxGeometry height="60" width="290" x="410" y="420" as="geometry" />
+        </mxCell>
+        <mxCell id="EjI9nSO4NDF0MQV-eIea-11" edge="1" parent="1" source="EjI9nSO4NDF0MQV-eIea-7" style="endArrow=classic;html=1;rounded=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;exitX=0.552;exitY=1;exitDx=0;exitDy=0;exitPerimeter=0;" target="EjI9nSO4NDF0MQV-eIea-8" value="">
+          <mxGeometry height="50" relative="1" width="50" as="geometry">
+            <Array as="points">
+              <mxPoint x="490" y="410" />
+            </Array>
+            <mxPoint x="490" y="410" as="sourcePoint" />
+            <mxPoint x="540" y="360" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="EjI9nSO4NDF0MQV-eIea-12" parent="1" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;" value="Spawns per task" vertex="1">
+          <mxGeometry height="30" width="110" x="510" y="380" as="geometry" />
+        </mxCell>
+        <mxCell id="EjI9nSO4NDF0MQV-eIea-13" edge="1" parent="1" style="endArrow=classic;html=1;rounded=0;" value="">
+          <mxGeometry height="50" relative="1" width="50" as="geometry">
+            <mxPoint x="459.5" y="270" as="sourcePoint" />
+            <mxPoint x="459.5" y="330" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="EjI9nSO4NDF0MQV-eIea-14" parent="1" style="rounded=0;whiteSpace=wrap;html=1;" value="LIST, CANCEL, SNOOZE, DISMISS, CLEAR, STATUS, HELP, QUIT" vertex="1">
+          <mxGeometry height="60" width="120" x="190" y="210" as="geometry" />
+        </mxCell>
+        <mxCell id="EjI9nSO4NDF0MQV-eIea-17" edge="1" parent="1" source="EjI9nSO4NDF0MQV-eIea-1" style="endArrow=classic;html=1;rounded=0;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" target="EjI9nSO4NDF0MQV-eIea-14" value="">
+          <mxGeometry height="50" relative="1" width="50" as="geometry">
+            <mxPoint x="400" y="270" as="sourcePoint" />
+            <mxPoint x="450" y="220" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="EjI9nSO4NDF0MQV-eIea-18" edge="1" parent="1" source="EjI9nSO4NDF0MQV-eIea-1" style="endArrow=classic;html=1;rounded=0;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" target="EjI9nSO4NDF0MQV-eIea-2" value="">
+          <mxGeometry height="50" relative="1" width="50" as="geometry">
+            <mxPoint x="400" y="270" as="sourcePoint" />
+            <mxPoint x="450" y="220" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="EjI9nSO4NDF0MQV-eIea-19" edge="1" parent="1" source="EjI9nSO4NDF0MQV-eIea-2" style="endArrow=classic;html=1;rounded=0;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" target="EjI9nSO4NDF0MQV-eIea-3" value="">
+          <mxGeometry height="50" relative="1" width="50" as="geometry">
+            <mxPoint x="400" y="270" as="sourcePoint" />
+            <mxPoint x="450" y="220" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
