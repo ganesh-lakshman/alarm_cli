@@ -1,0 +1,4 @@
+# Alarm Clock CLI
+# No external dependencies — uses only Python standard library.
+# Dev dependencies:
+pytest>=7.0
